@@ -1,0 +1,219 @@
+---
+title: "Généralités"
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+:::: panel-tabset
+# Introduction
+
+::: {.callout-tip title="Évaluation de la gaine du nerf optique par échographie dans l'Artérite à Cellules géantes"}
+Recherche non interventionnelle ne comportant aucun risque ni contrainte
+
+Étude diagnostique non interventionnelle, prospective multicentrique
+
+**Investigateur Coordonnateur** <br>Omar AL TABAA --- Rhumatologie
+Hôpital NOVO (Site de Pontoise)
+
+**Comité scientifique**<br> Maxime SANSOM --- Service de médecine
+interne CHU Dijon<br> Sébastien OTTAVIANI --- Service de rhumatologie
+hôpital Bichat (Paris)<br> Olivier ESPITIA --- Service de médecine
+vasculaire CHU Nantes
+
+**Chef de projet** <br>Mathilde WLODARCZYK
+
+**Méthodologiste**<br> Chrystelle VIDAL --- GIRCI Île de France
+
+**Data-manager**<br>Nathanaël CHARRIER
+
+**Statisticien**<br>Philippe MICHEL
+
+## 
+:::
+
+```{r}
+#| label: import
+
+library(tidyverse)
+library(baseph)
+library(readODS)
+library(labelled)
+library(janitor)
+library(kableExtra)
+library(gtsummary)
+library(plotly)
+
+classeur <- "petrusvalid.ods"
+expx <- FALSE
+if (expx) {
+  file.create(classeur)
+  file.remove(classeur)
+  write_ods(iris, classeur)
+}
+
+# sessionInfo()
+
+theme_gtsummary_language(language = "fr", decimal.mark = ",")
+theme_gtsummary_journal(journal = "jama")
+options(OutDec = ",")
+ptest <- list(all_continuous() ~ "t.test", all_categorical() ~ "chisq.test")
+ptest2 <- list(all_continuous() ~ "paired.t.test", all_categorical() ~ "chisq.test")
+stt <- list(
+  all_continuous() ~ "{mean} ({sd})",
+  all_categorical() ~ "{n}/{N} ({p}%)")
+
+# Concordance intra
+
+intra <- read_ods("datas/concordance_intra.ods", 
+                  na = c("", " ", "NA")) |> 
+    clean_names() |>
+  mutate(across(where(is.character), as.factor))
+bn <- read_ods("datas/concordance_intra.ods", 
+                sheet = 2)
+var_label(intra) <- bn$titre
+
+# Concordance technique
+tech <- read_ods("datas/concordance_techniques.ods", 
+                  na = c("", " ", "NA")) |> 
+    clean_names() |>
+  mutate(across(where(is.character), as.factor))
+bn <- read_ods("datas/concordance_techniques.ods", 
+                sheet = 2)
+var_label(tech) <- bn$titre
+# Validation mesures
+tt <- read_ods("datas/validation-mesures.ods", 
+                  na = c("", " ", "NA")) |> 
+    clean_names() |>
+  mutate(across(where(is.character), as.factor))
+bn <- read_ods("datas/validation-mesures.ods", 
+                sheet = 2)
+var_label(tt) <- bn$titre
+```
+::::
+
+# Concordance intra-observateur
+
+Les données ne sont présentes que pour un seul des experts.
+
+On considère qu'il y a une erreur dans les mesures si la différence
+entre les deux mesures est supérieure à 1 mm.
+
+```{r}
+#| label: intra-prepa
+
+intra2 <- intra |> 
+  pivot_longer(names_to = "structure", values_to = "value", cols = nerf_droit:gaine_gauche) |> 
+  pivot_wider(names_from = "relecture", values_from = "value") |> 
+  ## Recodage de zz$structure
+mutate(structure = fct_recode(structure,
+    "gaine du nerf optique" = "gaine_droit",
+    "gaine du nerf optique" = "gaine_gauche",
+    "nerf optique" = "nerf_droit",
+    "nerf optique" = "nerf_gauche"
+  )) |> 
+mutate(dif = abs( R_1 - R_2)) |> 
+mutate(erreur = as.factor(ifelse(dif > 0.999,"Erreur","Correct"))) |> 
+  drop_na(dif) 
+intra2 <- droplevels(intra2)
+var_label(intra2$dif) <-  "Différence des mesures"
+var_label(intra2$erreur) <-  "Erreur de mesure"
+```
+
+```{r}
+#| label: intra-tab1
+#| tab-cap: Concordance intra-observateur
+
+intra2 |> 
+dplyr::filter(structure == "nerf optique") |> 
+dplyr::select(dif, erreur) |> 
+
+tbl_summary(missing = "no",
+              type = all_continuous() ~ "continuous2",
+               statistic = all_continuous() ~ c(
+      "{mean} ± {sd}",
+      "{min}, {max}")) |> 
+  add_n() |> 
+  bold_labels() |>
+  modify_header(label ~ " ") |> 
+   modify_spanning_header(c("stat_0") ~ "**Nerf optique**") |>
+  as_kable_extra() |> 
+   kable_material(c("striped", "hover")) |> 
+   scroll_box(width = "100%", height = "650px")
+
+intra2 |> 
+dplyr::filter(structure != "nerf optique") |> 
+dplyr::select( dif, erreur) |> 
+
+tbl_summary(missing = "no",
+              type = all_continuous() ~ "continuous2",
+               statistic = all_continuous() ~ c(
+      "{mean} ± {sd}",
+      "{min}, {max}")) |> 
+     modify_spanning_header(c("stat_0") ~ "**Gaine du nerf optique**") |>
+  add_n() |> 
+  bold_labels() |>
+  modify_header(label ~ " ") |> 
+  as_kable_extra() |> 
+   kable_material(c("striped", "hover")) |> 
+   scroll_box(width = "100%", height = "650px")
+
+```
+
+La concordance des deux mesures tend à valider la qualité des mesures.
+Les mesures semblent plus reproductibles pour la gaine du nerf optique
+que pour le nerf optique.
+
+```{r}
+#| label: fig-intra1
+#| fig-cap: Différence entre les deux mesures
+
+intra2 |> 
+  ggplot() + 
+  aes(x = dif, fill = structure) |> 
+  geom_density(alpha = .7) +
+        labs(
+      title = "Différence entre les deux mesures",
+      x = "mm", 
+      caption = "Différence mesure 2 / mesure 1"
+    ) +
+    theme_light() +
+    theme(
+      plot.title = element_text(size = 18, face = "bold"),
+      plot.subtitle = element_text(size = 12),
+      axis.title.x = element_text(size = 12),
+      axis.title.y = element_blank(),
+      axis.text.x = element_text(size = 12),
+      axis.text.y = element_text(size = 12),
+      legend.position = "top"
+    )
+```
+
+```{r}
+
+#| label: fig-intra2
+#| fig-cap: Différence entre les deux mesures
+
+zz <- intra2 |> 
+  ggplot() + 
+  aes(x = structure, y = dif, fill = structure) |> 
+  geom_violin() +
+        labs(
+      title = "Différence entre les deux mesures",
+      x = "Structure", 
+      y ="mm",
+      caption = "Différence mesure 2 / mesure 1"
+    ) +
+    theme_light() +
+    theme(
+      plot.title = element_text(size = 18, face = "bold"),
+      plot.subtitle = element_text(size = 12),
+      axis.title.x = element_text(size = 12),
+      axis.title.y = element_text(size = 12),
+      axis.text.x = element_text(size = 12),
+      axis.text.y = element_text(size = 12),
+      legend.position = "none"
+    )
+
+ggplotly(zz)
+```
