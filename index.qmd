@@ -21,23 +21,24 @@ interne CHU Dijon<br> Sébastien OTTAVIANI --- Service de rhumatologie
 hôpital Bichat (Paris)<br> Olivier ESPITIA --- Service de médecine
 vasculaire CHU Nantes
 
-**Chef de projet** <br>Mathilde WLODARCZYK
+**Chef de projet** <br>Mathilde WLODARCZY — USRC
 
 **Méthodologiste**<br> Chrystelle VIDAL --- GIRCI Île de France
 
-**Data-manager**<br>Nathanaël CHARRIER
+**Data-manager**<br>Nathanaël CHARRIER — USRC
 
-**Statisticien**<br>Philippe MICHEL
-
-## 
+**Statisticien**<br>Philippe MICHEL — USRC
 :::
 
 ```{r}
-#| label: import
+#| label: setup
+
+#
+# setup
+#
 
 library(tidyverse)
 library(baseph)
-library(readODS)
 library(labelled)
 library(janitor)
 library(kableExtra)
@@ -62,35 +63,55 @@ ptest2 <- list(all_continuous() ~ "paired.t.test", all_categorical() ~ "chisq.te
 stt <- list(
   all_continuous() ~ "{mean} ({sd})",
   all_categorical() ~ "{n}/{N} ({p}%)")
+```
 
+```{r}
+#| label: import
+
+#
+# Importation des données 
+#
+library(tidyverse)
+library(baseph)
+library(readODS)
+library(labelled)
+library(janitor)
+#
 # Concordance intra
+#
+
+nad <- c("", " ", "NA", "ND")
 
 intra <- read_ods("datas/concordance_intra.ods", 
-                  na = c("", " ", "NA")) |> 
+                  na = nad) |> 
     clean_names() |>
   mutate(across(where(is.character), as.factor))
 bn <- read_ods("datas/concordance_intra.ods", 
                 sheet = 2)
 var_label(intra) <- bn$titre
-
+#
 # Concordance technique
+#
 tech <- read_ods("datas/concordance_techniques.ods", 
-                  na = c("", " ", "NA")) |> 
+                  na = nad) |> 
     clean_names() |>
   mutate(across(where(is.character), as.factor))
 bn <- read_ods("datas/concordance_techniques.ods", 
                 sheet = 2)
 var_label(tech) <- bn$titre
+#
 # Validation mesures
+#
 tt <- read_ods("datas/validation-mesures.ods", 
-                  na = c("", " ", "NA")) |> 
+                  na = nad) |> 
     clean_names() |>
   mutate(across(where(is.character), as.factor))
 bn <- read_ods("datas/validation-mesures.ods", 
                 sheet = 2)
 var_label(tt) <- bn$titre
+#
+
 ```
-::::
 
 # Concordance intra-observateur
 
@@ -101,7 +122,9 @@ entre les deux mesures est supérieure à 1 mm.
 
 ```{r}
 #| label: intra-prepa
-
+#
+# Préparation des données 
+#
 intra2 <- intra |> 
   pivot_longer(names_to = "structure", values_to = "value", cols = nerf_droit:gaine_gauche) |> 
   pivot_wider(names_from = "relecture", values_from = "value") |> 
@@ -138,8 +161,7 @@ tbl_summary(missing = "no",
   modify_header(label ~ " ") |> 
    modify_spanning_header(c("stat_0") ~ "**Nerf optique**") |>
   as_kable_extra() |> 
-   kable_material(c("striped", "hover")) |> 
-   scroll_box(width = "100%", height = "650px")
+   kable_material(c("striped", "hover"))
 
 intra2 |> 
 dplyr::filter(structure != "nerf optique") |> 
@@ -155,8 +177,7 @@ tbl_summary(missing = "no",
   bold_labels() |>
   modify_header(label ~ " ") |> 
   as_kable_extra() |> 
-   kable_material(c("striped", "hover")) |> 
-   scroll_box(width = "100%", height = "650px")
+   kable_material(c("striped", "hover"))
 
 ```
 
@@ -217,3 +238,107 @@ zz <- intra2 |>
 
 ggplotly(zz)
 ```
+
+# Concordance technique
+
+On compare ici deux méthode de mesure : technique habituelle vs mesure à
+l'interface du vitré.
+
+```{r}
+#| label: tech-prepa
+
+#
+# Concordance technique :préparation des données
+#
+tech2 <- tech |> 
+  pivot_longer(names_to = "structure", values_to = "value", cols = nerf_droit:gaine_gauche) |> 
+  pivot_wider(names_from = "technique", values_from = "value") |> 
+  mutate(structure = fct_recode(structure,
+                                "gaine du nerf optique" = "gaine_droit",
+                                "gaine du nerf optique" = "gaine_gauche",
+                                "nerf optique" = "nerf_droit",
+                                "nerf optique" = "nerf_gauche"
+  )) |> 
+  mutate(dif = abs(habituelle -`Interface vitré`)) |> 
+  mutate(erreur = as.factor(ifelse(dif > 0.999,"Erreur","Correct"))) |> 
+  drop_na(dif)
+```
+
+
+```{r}
+#| label: tab-tech1
+#| tab-cap: Concordance technique
+
+cot <- rep(c("d","d","g","g"),20)
+
+zz <- tech2 |> 
+dplyr::filter(structure == "nerf optique") |> 
+mutate(id = as.factor(paste0(centre, expert,coupe))) |> 
+dplyr::select(id, habituelle:`Interface vitré`) |> 
+pivot_longer(cols = habituelle :`Interface vitré`)  |> 
+mutate(id = paste0(id,cot)) |> 
+mutate(name = as.factor(name)) |> 
+drop_na() 
+zz |> 
+  tbl_summary(by = name, 
+              include = -id) |> 
+  add_p(test = list(
+          all_continuous() ~ "paired.t.test"),
+        group = id) |> 
+    add_n() |> 
+  bold_labels() |>
+  bold_p() |> 
+  modify_header(label ~ "**Nerf optique**") |> 
+  as_kable_extra(escape = TRUE) |> 
+   kable_material(c("striped", "hover"))
+
+
+
+zg <- tech2 |> 
+dplyr::filter(structure != "nerf optique") |> 
+mutate(id = as.factor(paste0(centre, expert,coupe))) |> 
+dplyr::select(id, habituelle:`Interface vitré`) |> 
+pivot_longer(cols = habituelle :`Interface vitré`)  |> 
+mutate(id = paste0(id,cot)) |> 
+mutate(name = as.factor(name)) |> 
+drop_na() 
+zg |> 
+  tbl_summary(by = name, 
+              include = -id) |> 
+  add_p(test = list(
+          all_continuous() ~ "paired.t.test"),
+        group = id) |> 
+      add_n() |> 
+  bold_labels() |>
+  bold_p() |> 
+  modify_header(label ~ "**Gaine du nerf optique**") |> 
+  as_kable_extra(escape = TRUE) |> 
+   kable_material(c("striped", "hover"))
+```
+
+```{r}
+#| label: tab-techvar
+#| tab-cap: "Concordance technique (comparaison des variances)"
+
+
+vvn <- var.test(zz$value~zz$name)
+vvn <- beaup(vvn$p.value, affp = 1)
+
+vvg <- var.test(zg$value~zg$name)
+vvg <- beaup(vvg$p.value, affp = 1)
+
+mesure = c("Nerf optique", "Gaine du nerf optique")
+pvalue <- c(vvn, vvg)
+             
+vv <- tibble(mesure, pvalue) 
+
+names(vv)[2] <- "Comparaison des variances"
+vv |> 
+kbl() |>  
+  kable_material(c("striped", "hover"))
+```
+
+Pour la mesure du nerf  optique la technique
+`à l'interface vitrée` a tendance est être plus petite que la mesure `habituelle`. Pas de différence pour la mesure de la gaine.Mais la précision est la même, il n'y a pas de différence dans les variances.
+
+::::
