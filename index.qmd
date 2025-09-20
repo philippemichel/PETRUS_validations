@@ -321,10 +321,10 @@ zg |>
 #| tab-cap: "Concordance technique (comparaison des variances)"
 
 
-vvn <- var.test(zz$value~zz$name)
+vvn <- var.test(zz$value~zz$name, alternative ="two.sided")
 vvn <- beaup(vvn$p.value, affp = 1)
 
-vvg <- var.test(zg$value~zg$name)
+vvg <- var.test(zg$value~zg$name, alternative ="two.sided")
 vvg <- beaup(vvg$p.value, affp = 1)
 
 mesure = c("Nerf optique", "Gaine du nerf optique")
@@ -339,6 +339,11 @@ kbl() |>
 ```
 
 Pour la mesure du nerf  optique la technique
-`à l'interface vitrée` a tendance est être plus petite que la mesure `habituelle`. Pas de différence pour la mesure de la gaine.Mais la précision est la même, il n'y a pas de différence dans les variances.
+`à l'interface vitrée` a tendance est être plus petite que la mesure `habituelle`. Pas de différence pour la mesure de la gaine.Mais la précision est la même, il n'y a pas de différence entre les variances des deux méthodes.
+
+## Selon l'expert
+
+Il n'y a aucune mesure utilisable pour le Dr OTTAVIANI.
+
 
 ::::
