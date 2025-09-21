@@ -34,10 +34,6 @@ website:
     style: "docked"
     pinned: true
     search: true
-    contents:
-      - section: "PETRUS"
-        contents:
-          - index.qmd
   open-graph:
     locale: fr_FR
     site-name: PETRUS Validations
@@ -46,6 +42,7 @@ format:
     page-layout: full
     highlight-style: ayu
     code-fold: true
+    embed-resources: true
     theme:
       light:
         - sandstone

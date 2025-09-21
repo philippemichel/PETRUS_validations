@@ -1,8 +1,5 @@
 ---
-title: "Généralités"
-editor: 
-  markdown: 
-    wrap: 72
+subtitle: "Évaluation de la gaine du nerf optique par échographie dans l'Artérite à Cellules géantes"
 ---
 
 :::: panel-tabset
@@ -40,6 +37,7 @@ vasculaire CHU Nantes
 library(tidyverse)
 library(baseph)
 library(labelled)
+library(readODS)
 library(janitor)
 library(kableExtra)
 library(gtsummary)
@@ -144,14 +142,14 @@ var_label(intra2$erreur) <-  "Erreur de mesure"
 ```
 
 ```{r}
-#| label: intra-tab1
+#| label: tab-intratab1
 #| tab-cap: Concordance intra-observateur
 
-intra2 |> 
+tab <-intra2 |> 
 dplyr::filter(structure == "nerf optique") |> 
 dplyr::select(dif, erreur) |> 
 
-tbl_summary(missing = "no",
+ tbl_summary(missing = "no",
               type = all_continuous() ~ "continuous2",
                statistic = all_continuous() ~ c(
       "{mean} ± {sd}",
@@ -159,7 +157,13 @@ tbl_summary(missing = "no",
   add_n() |> 
   bold_labels() |>
   modify_header(label ~ " ") |> 
-   modify_spanning_header(c("stat_0") ~ "**Nerf optique**") |>
+   modify_spanning_header(c("stat_0") ~ "**Nerf optique**") 
+  if (expx) {
+      tab |>
+        as_tibble() |>
+        write_ods(path = classeur, sheet = "intra-tab1n", append = TRUE)
+    }
+tab |> 
   as_kable_extra() |> 
    kable_material(c("striped", "hover"))
 
@@ -175,7 +179,14 @@ tbl_summary(missing = "no",
      modify_spanning_header(c("stat_0") ~ "**Gaine du nerf optique**") |>
   add_n() |> 
   bold_labels() |>
-  modify_header(label ~ " ") |> 
+  modify_header(label ~ " ") 
+
+  if (expx) {
+      tab |>
+        as_tibble() |>
+        write_ods(path = classeur, sheet = "intra-tab1g", append = TRUE)
+    }
+tab |> 
   as_kable_extra() |> 
    kable_material(c("striped", "hover"))
 
@@ -262,8 +273,8 @@ tech2 <- tech |>
   mutate(dif = abs(habituelle -`Interface vitré`)) |> 
   mutate(erreur = as.factor(ifelse(dif > 0.999,"Erreur","Correct"))) |> 
   drop_na(dif)
+var_label(tech2$dif) <-  "Différence des mesures"
 ```
-
 
 ```{r}
 #| label: tab-tech1
@@ -271,7 +282,7 @@ tech2 <- tech |>
 
 cot <- rep(c("d","d","g","g"),20)
 
-zz <- tech2 |> 
+ zz <- tech2 |> 
 dplyr::filter(structure == "nerf optique") |> 
 mutate(id = as.factor(paste0(centre, expert,coupe))) |> 
 dplyr::select(id, habituelle:`Interface vitré`) |> 
@@ -279,17 +290,27 @@ pivot_longer(cols = habituelle :`Interface vitré`)  |>
 mutate(id = paste0(id,cot)) |> 
 mutate(name = as.factor(name)) |> 
 drop_na() 
-zz |> 
+tab <- zz |> 
   tbl_summary(by = name, 
-              include = -id) |> 
+              include = -id,
+              type = all_continuous() ~ "continuous2",
+               statistic = all_continuous() ~ c(
+      "{mean} ± {sd}",
+      "{min}, {max}")) |> 
   add_p(test = list(
           all_continuous() ~ "paired.t.test"),
         group = id) |> 
     add_n() |> 
   bold_labels() |>
   bold_p() |> 
-  modify_header(label ~ "**Nerf optique**") |> 
-  as_kable_extra(escape = TRUE) |> 
+  modify_header(label ~ "**Nerf optique**") 
+  if (expx) {
+      tab |>
+        as_tibble() |>
+        write_ods(path = classeur, sheet = "tab-tech1n", append = TRUE)
+    }
+tab |> 
+  as_kable_extra() |> 
    kable_material(c("striped", "hover"))
 
 
@@ -302,18 +323,31 @@ pivot_longer(cols = habituelle :`Interface vitré`)  |>
 mutate(id = paste0(id,cot)) |> 
 mutate(name = as.factor(name)) |> 
 drop_na() 
-zg |> 
+tab <- zg |> 
   tbl_summary(by = name, 
-              include = -id) |> 
+              include = -id,
+              type = all_continuous() ~ "continuous2",
+               statistic = all_continuous() ~ c(
+      "{mean} ± {sd}",
+      "{min}, {max}")) |> 
   add_p(test = list(
           all_continuous() ~ "paired.t.test"),
         group = id) |> 
       add_n() |> 
   bold_labels() |>
   bold_p() |> 
-  modify_header(label ~ "**Gaine du nerf optique**") |> 
-  as_kable_extra(escape = TRUE) |> 
+  modify_header(label ~ "**Gaine du nerf optique**") 
+
+  if (expx) {
+      tab |>
+        as_tibble() |>
+        write_ods(path = classeur, sheet = "tab-tech1g", append = TRUE)
+    }
+tab |> 
+  as_kable_extra() |> 
    kable_material(c("striped", "hover"))
+
+
 ```
 
 ```{r}
@@ -333,17 +367,139 @@ pvalue <- c(vvn, vvg)
 vv <- tibble(mesure, pvalue) 
 
 names(vv)[2] <- "Comparaison des variances"
+
+  if (expx) {
+      vv |>
+        as_tibble() |>
+        write_ods(path = classeur, sheet = "tab-echvar", append = TRUE)
+    }
 vv |> 
 kbl() |>  
   kable_material(c("striped", "hover"))
 ```
 
-Pour la mesure du nerf  optique la technique
-`à l'interface vitrée` a tendance est être plus petite que la mesure `habituelle`. Pas de différence pour la mesure de la gaine.Mais la précision est la même, il n'y a pas de différence entre les variances des deux méthodes.
+Pour la mesure du nerf optique la technique `à l'interface vitrée` a tendance est être plus petite que la mesure `habituelle`. Pas de
+différence pour la mesure de la gaine.Mais la précision est la même, il
+n'y a pas de différence entre les variances des deux méthodes.
 
 ## Selon l'expert
 
 Il n'y a aucune mesure utilisable pour le Dr OTTAVIANI.
 
+```{r}
+#| label: tab-techexp
+#| tab-cap: "Différence des mesures entre les deux méthodes selon l'expert"
 
+tab <- tech2 |> 
+  dplyr::filter(structure == "nerf optique") |> 
+dplyr::filter(expert != "OTTAVIANI") |> 
+mutate(expert = factor(expert)) |>
+  drop_na() |>
+ dplyr::select(expert,dif) |> 
+  tbl_summary(by = expert,
+type = all_continuous() ~ "continuous2",
+               statistic = all_continuous() ~ c(
+      "{mean} ± {sd}",
+      "{min}, {max}")) |> 
+ add_p(test = list(
+          all_continuous() ~ "t.test")) |> 
+      add_n() |> 
+  bold_labels() |>
+  bold_p() |> 
+  modify_header(label ~ "**Nerf optique**") 
+  if (expx) {
+      tab |>
+        as_tibble() |>
+        write_ods(path = classeur, sheet = "techexpn", append = TRUE)
+    }
+tab |> 
+  as_kable_extra() |> 
+   kable_material(c("striped", "hover"))
+
+
+tab <- tech2 |> 
+  dplyr::filter(structure != "nerf optique") |> 
+dplyr::filter(expert != "OTTAVIANI") |> 
+mutate(expert = factor(expert)) |>
+  drop_na() |>
+ dplyr::select(expert,dif) |> 
+  tbl_summary(by = expert,
+type = all_continuous() ~ "continuous2",
+               statistic = all_continuous() ~ c(
+      "{mean} ± {sd}",
+      "{min}, {max}")) |> 
+ add_p(test = list(
+          all_continuous() ~ "t.test")) |> 
+      add_n() |> 
+  bold_labels() |>
+  bold_p() |> 
+  modify_header(label ~ "**Gaine du nerf optique**") 
+  if (expx) {
+      tab |>
+        as_tibble() |>
+        write_ods(path = classeur, sheet = "techexpg", append = TRUE)
+    }
+tab |> 
+  as_kable_extra() |> 
+   kable_material(c("striped", "hover"))
+```
+
+# Validation des lecteurs
+
+On compare ici les mesures de chaque lecteur avec la moyenne des trois
+experts.
+
+```{r}
+#| label: moyenne des experts
+
+exp <- tt |> 
+  drop_na() |> 
+  dplyr::filter(lecteur != "échographiste formé") |> 
+  pivot_longer(cols = nerf_droit:gaine_gauche,values_to = "mesure") |> 
+ mutate(coupe2= paste0(coupe, name)) |>  
+group_by(coupe2) |> 
+  summarise(round(mean(mesure),2))
+
+lect <- tt |> 
+  dplyr::filter(lecteur == "échographiste formé") |> 
+    pivot_longer(cols = nerf_droit:gaine_gauche,values_to = "mesure") |> 
+ mutate(coupe2= paste0(coupe, name))
+
+el <- left_join(exp,lect, by = "coupe2") |> 
+  dplyr::select(- c(coupe2, lecteur, coupe)) 
+
+names(el) <- c("moy_exp",  "structure", "mes_lecteur")
+
+el <- el |> 
+  mutate(dif = round(abs(moy_exp - mes_lecteur),2)) |> 
+  mutate(erreur = as.factor(ifelse(dif > 0.999, "Erreur", "Correct"))) |> 
+mutate(structure = fct_recode(structure,
+    "Gaine du nerf optique" = "gaine_droit",
+    "Gaine du nerf optique" = "gaine_gauche",
+    "Nerf optique" = "nerf_droit",
+    "Nerf optique" = "nerf_gauche"
+  )) |> 
+relocate(structure, .before = moy_exp)
+
+var_label(el) <-  c("Structure", "Moyenne des experts", "Mesure du lecteur" ,"Différence", "Validation")
+```
+
+
+```{r}
+#| label: tab-vallect
+#| tab-cap: Validation du lecteur
+
+tab <- el |> 
+mutate(dif = cell_spec(dif, color = ifelse(dif > 0.999, "red", "black"))) |> 
+  mutate(erreur = cell_spec(erreur, color = ifelse(erreur =="Erreur", "red", "black"))) 
+  if (expx) {
+      tab |>
+        write_ods(path = classeur, sheet = "vallect", append = TRUE)
+    }
+tab |> 
+  kbl(escape = F) |>
+   kable_material(c("striped", "hover"))
+```
+
+Le lecteur testé ici a fait une erreur sur quarante mesures.
 ::::
